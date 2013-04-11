@@ -3,125 +3,130 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <algorithm>
 
 // OpenCV includes
 #include <cv.h>
 #include <highgui.h>
 
+#include "Selection.h"
 
-	IplImage* frame;
 
-	IplImage* selection;
 
-	CvCapture* capture;
+  
+  int drag = 0;
 	
-	CvPoint point;
+	static cv::Point roiP1;
+	static cv::Point roiP2;
 
-	int drag = 0;
-	int key = 0;
+	static cv::Point notRoi;
 
-void mouseHandler(int event, int x, int y, int flags, void*param){
+
 	
-	//IplImage* frame = (IplImage*) param;
-	
+
+
+Selection::Selection(){
+	roiP1.x = -1;
+	roiP1.y = -1;
+	roiP2.x = -1;
+	roiP2.y = -1;
+
+	notRoi.x = -1;
+	notRoi.y = -1;
+}
+
+void Selection::mouseHandler(int event, int x, int y, int flags, void*param){
+
+
 	//user presses left button
 	if (event == CV_EVENT_LBUTTONDOWN && !drag)
 	{
-		point = cvPoint(x,y);
+		roiP1.x = x;
+		roiP1.y = y;
+		roiP2.x = x;
+		roiP2.y = y;
+
 		drag = 1;
 	}
 
 	//user drags the mouse
-	if (event == CV_EVENT_MOUSEMOVE && drag)
+	else if (event == CV_EVENT_MOUSEMOVE && drag)
 	{
-		selection = cvCloneImage(frame);
-		cvRectangle(selection, point, cvPoint(x,y), CV_RGB(0, 255, 0), 1, 8, 0);
-		cvCopy(selection, frame, NULL);
-		cvShowImage("View", selection);
+		roiP2.x = x;
+		roiP2.y = y;
+
 	}
 
 	//user releases the left button
 	else if (event == CV_EVENT_LBUTTONUP && drag)
 	{
-		selection = cvCloneImage(frame);
-		
-		//top left to bottom right selection
-		if ( x - point.x > 0 && y - point.y > 0 ){
-			cvSetImageROI(selection, cvRect(point.x,point.y,x-point.x,y-point.y));
-		}
-
-		
-		//bottom left to top right selection
-		else if ( x - point.x > 0 && y - point.y < 0) {
-			cvSetImageROI(selection, cvRect(point.x, y ,x-point.x, point.y - y));
-		}
-
-
-		//top right to bottom left selection
-		else if ( x - point.x < 0 && y - point.y > 0){
-			cvSetImageROI(selection, cvRect(x, point.y, point.x - x, y -point.y));
-
-		}
-
-		//bottom right to top left selection
-		else if (  x - point.x < 0 && y - point.y < 0){
-			cvSetImageROI(selection, cvRect(x, y, point.x - x, point.y - y));
-
-		}
-
-
-
-		//cvNot(selection, selection);
-		cvShowImage("ROI", selection);
-		cvResetImageROI(selection);
-		cvCopy(selection, frame, NULL);
-		cvShowImage("View", selection);
 		drag = 0;
 	}
 
 	//user click right button, reset drawing
 	else if (event == CV_EVENT_RBUTTONUP){
 
-		cvShowImage("View", frame);
-		
-		drag = 0;
+	roiP1.x = -1;
+	roiP1.y = -1;
+	roiP2.x = -1;
+	roiP2.y = -1;
+	
+	drag = 0;
 
 	}
 
 
 }
 	
-	
+cv::Rect Selection::getRect(cv::Point p1, cv::Point p2){
+
+  cv::Rect ret;
+  ret.x = std::min(p1.x, p2.x);
+  ret.y = std::min(p1.y, p2.y);
+  ret.width = std::max(p1.x, p2.x) - ret.x;
+  ret.height = std::max(p1.y, p2.y) - ret.y;
+
+  return ret;
+
+}
+
+
+
+
 	
 int main(int argc, char *argv[])
 {
-	capture = cvCreateCameraCapture(1);
-
-	assert(capture);
+	cv::VideoCapture capture(1);
 	
-	cvNamedWindow("View");
+	cv::Mat frame;
 	
-	cvNamedWindow("ROI");
+	cv::namedWindow("View");
 
-			//cvShowImage("View",frame);
-	//IplImage* frame = cvQueryFrame(capture);
-		
-		cvSetMouseCallback("View", mouseHandler, NULL);//(void*) frame);
-
+		cvSetMouseCallback("View", Selection::mouseHandler, NULL);//(void*) frame);
+	int key = 0;
 		while(key != 'q'){
 
-			frame = cvQueryFrame(capture);
-			cvShowImage("View", frame);
-			key = cvWaitKey(1);
+			capture.read(frame);
+
+			if(roiP1 != notRoi && roiP2 != notRoi){
+			  
+			  cv::Rect roi = Selection::getRect(roiP1,roiP2);
+
+			  cv::Mat image_roi = frame(roi);
+
+			  //computeHistogram()
+
+			  cv::rectangle(frame, roi, CV_RGB(0, 255, 0), 1, 8, 0);
+			  
+		
+			}
+
+			cv::imshow("View", frame);
+
+			key = cv::waitKey(1);
 
 		}
-
-		cvDestroyWindow("ROI");
-		cvDestroyWindow("View");
-		
-
-		cvReleaseImage(&frame);
-		cvReleaseImage(&selection);
+		cv::destroyWindow("View");
 
 		return 0;
 
