@@ -98,78 +98,54 @@ cv::Rect Selection::getRect(cv::Point p1, cv::Point p2){
 }
 
 cv::Mat Selection::computeHistogram(cv::Mat src){
-	
-	std::printf("Depth of src: %d", src.channels());
 	cv::Mat src_gray;
 	cv::cvtColor(src, src_gray, CV_RGB2GRAY);
-	std::printf("Depth of src_gray: %d", src_gray.channels());
 
-	//cv::imshow("hist attempt", src_gray);
+	int* histogram = new int[src.cols];
 
-	//cv::waitKey(0);
 
-	//number of bins
-	int histSize = src_gray.cols;
+	for (int i = 0; i < src.cols; i++){
+		
+		//Create Mat of the selected column
+		cv::Mat thisColumn = src_gray.col(i);
 
-	float intensity_range[] = { 0 , 256 };
-	const float* histRange = {intensity_range};
-	bool uniform = true; bool accumulate = false;
+		int sum = 0;//, count = 0;
+		for (int j = 0; j < src.rows; j++){
+			sum += (int) thisColumn.at<uchar>(j, 0);
+			//count++;
+		}
 
-	cv::Mat hist;
-
-	calcHist( &src_gray, 1, 0, cv::Mat() , hist, 1, &histSize, &histRange, uniform, accumulate);
-
-	int hist_w = src_gray.cols; int hist_h = 256;
-	//bin width should be one pixel
-	
-	int bin_w = 1;
-	//int bin_w = cvRound( (double) hist_w/histSize );
-
-	//double maxVal = 0;
-	//minMaxLoc( hist, 0, &maxVal, 0 ,0);
-
-	/*
-	int scale = 5;
-	cv::Mat histImage = cv::Mat::zeros(src_gray.cols * scale, 256 * scale, CV_8UC3); 
-	*/
-
-	/*
-	
-	for (int i = 1; i < histSize; i++){
-		//float binVal = hist.at<float>(i);
-		//int intensity = cvRound(binVal*255/maxVal);
-		cv::line(histImage, cv::Point((i-1)*scale, 256 - cvRound(hist.at<float>(i-1)) ),
-			cv::Point(i*scale, 256 - cvRound(hist.at<float>(i) ) ),
-			cv::Scalar( 255, 0 , 0), 2, 8, 0);
-
-		cv::imshow("hist attempt", histImage);
-		cv::waitKey(0);
-
+		//put the average intensity of the column into the histogram array
+		histogram[i] = cvRound( sum / (src_gray.rows * 1.0));
+		//printf("Element at %d is %d", i, histogram[i]); 
 	}
-	*/
 
+	 for(int i = 0; i < src_gray.cols; i++)
+        std::cout<<histogram[i]<<" ";
 
+	 //draw histogram
+	 int hist_width = src_gray.cols;
+	 int hist_height = src_gray.rows;
+ 
+	 //NORMALIZE histogram between 0 and hist_height
+	for(int i = 0; i < hist_width; i++){
+		histogram[i] = cvRound(((double)histogram[i]/255*hist_height));
+	}
+	for(int i = 0; i < src_gray.cols; i++)
+        std::cout<<histogram[i]<<" ";
 
-	cv::Mat histImage ( hist_h, hist_w, CV_8UC3, cv::Scalar(0 , 0, 0));
+	//Draw line for histogram
+	for (int i = 1; i < hist_width; i++){
+		cv::line(src, cv::Point((i-1), hist_height - histogram[i-1] ),
+			cv::Point(i, hist_height - histogram[i]),
+			cv::Scalar( 255, 100, 100), 2, 8, 0);
 
-	cv::normalize(hist, hist, 0, 256, cv::NORM_MINMAX, -1, cv::Mat());
-
-	for (int i = 1; i < histSize; i++)
-	{
-		std::printf("Line from (%d, %d) to (%d,%d)", i - 1, cvRound(hist.at<float>(i-1)), i, cvRound(hist.at<float>(i)) );
-		line ( histImage, cv::Point((i-1), cvRound(hist.at<float>(i-1)) ),
-			cv::Point((i), cvRound(hist.at<float>(i)) ),
-			cv::Scalar( 255, 0, 0), 1, 8, 0 );
-
-		cv::imshow("hist attempt", histImage);
-		cv::waitKey(0);
-
+		
 	}
 
 
-	
-	return histImage;
-
+	//RELEASE HISTOGRAM ARRAY????
+	return src;
 
 }
 
@@ -182,9 +158,8 @@ int main(int argc, char *argv[])
 	cv::Mat frame;
 	
 	cv::namedWindow("View");
-	cv::namedWindow("hist attempt", CV_WINDOW_AUTOSIZE);
 		
-	cvSetMouseCallback("View", Selection::mouseHandler, NULL);//(void*) frame);
+	cvSetMouseCallback("View", Selection::mouseHandler, NULL);
 	
 	int key = 0;
 		
@@ -192,27 +167,24 @@ int main(int argc, char *argv[])
 
 			capture.read(frame);
 
+			cv::Mat image_roi;
+
 			if(roiP1 != notRoi && roiP2 != notRoi){
 			  
 			  cv::Rect roi = Selection::getRect(roiP1,roiP2);
 
-			  cv::Mat image_roi = frame(roi);
+			  image_roi = frame(roi);
 
 			  if(computeHist){
 						
-					cv::Mat histImage = Selection::computeHistogram(image_roi);
-
-						cv::imshow("hist attempt", histImage);
-				
-						cv::waitKey(0);
+				Selection::computeHistogram(image_roi);
 
 			  }
 
-			  cv::rectangle(frame, roi, CV_RGB(0, 255, 0), 1, 8, 0);
+			  cv::rectangle(frame, roi, CV_RGB(0, 255, 0), 2, 8, 0);
 			  
-		
 			}
-
+			
 			cv::imshow("View", frame);
 
 			key = cv::waitKey(1);
