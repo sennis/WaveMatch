@@ -9,6 +9,10 @@
 #include <cv.h>
 #include <highgui.h>
 
+#include "lens\ICamera.h"
+#include "lens\OpenCVCamera.h"
+#include "lens\PointGreyCamera.h"
+
 #include "Selection.h"
 
 
@@ -120,8 +124,8 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 		//printf("Element at %d is %d", i, histogram[i]); 
 	}
 
-	 for(int i = 0; i < src_gray.cols; i++)
-        std::cout<<histogram[i]<<" ";
+	 //for(int i = 0; i < src_gray.cols; i++)
+       // std::cout<<histogram[i]<<" ";
 
 	 //draw histogram
 	 int hist_width = src_gray.cols;
@@ -131,8 +135,8 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 	for(int i = 0; i < hist_width; i++){
 		histogram[i] = cvRound(((double)histogram[i]/255*hist_height));
 	}
-	for(int i = 0; i < src_gray.cols; i++)
-        std::cout<<histogram[i]<<" ";
+	//for(int i = 0; i < src_gray.cols; i++)
+      //  std::cout<<histogram[i]<<" ";
 
 	//Draw line for histogram
 	for (int i = 1; i < hist_width; i++){
@@ -153,8 +157,12 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 	
 int main(int argc, char *argv[])
 {
-	cv::VideoCapture capture(1);
+	//cv::VideoCapture capture(1);
 	
+	auto camera = shared_ptr<lens::ICamera>(new lens::PointGreyCamera());
+	camera->open();
+
+
 	cv::Mat frame;
 	
 	cv::namedWindow("View");
@@ -165,7 +173,9 @@ int main(int argc, char *argv[])
 		
 	while(key != 'q'){
 
-			capture.read(frame);
+			//capture.read(frame);
+
+			frame = cv::Mat(camera->getFrame());
 
 			cv::Mat image_roi;
 
