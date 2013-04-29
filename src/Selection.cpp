@@ -1,6 +1,7 @@
 // Standard C++ includes
 #include <stdio.h>
 #include <stdlib.h>
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include <string.h>
 #include <algorithm>
@@ -139,7 +140,7 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
       //  std::cout<<histogram[i]<<" ";
 
 	
-	int* ideal_wave = new int[hist_width];
+	float* ideal_wave = new float[hist_width];
 
 	Selection::findExtrema(src, histogram, 25, ideal_wave);
 	
@@ -155,22 +156,33 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 	//draw mins and maxes
 	for (int i = 0;	i < hist_width; i++){	
 		if (ideal_wave[i] != -1)
-			cv::circle(src, cv::Point(i, hist_height - ideal_wave[i]), 3, cv::Scalar(0, 0, 255), -1, 8, 0);
+			cv::circle(src, cv::Point(i, hist_height - cvRound(ideal_wave[i])), 3, cv::Scalar(0, 0, 255), -1, 8, 0);
 	}
 
-	
+	Selection::interpolateWave(src, ideal_wave);
+
+	//draw ideal wave
+	for (int i = 1; i < hist_width; i++){
+			cv::line(src, cv::Point((i-1), hist_height - cvRound(ideal_wave[i-1]) ),
+			cv::Point(i, hist_height - cvRound(ideal_wave[i])),
+			cv::Scalar( 200, 255, 0), 2, 8, 0);
+
+		
+	}
+
+
 	//RELEASE HISTOGRAM ARRAY????
 	return src;
 
 }
 
 
-void Selection::findExtrema(cv::Mat src, int* histogram, int scan_region, int* output){
+void Selection::findExtrema(cv::Mat src, int* histogram, int scan_region, float* output){
 	
 	
 	//initialize all values of output to -1
 	for (int i = 0; i < src.cols; i++){
-		output[i] = -1;
+		output[i] = -1.0;
 	}
 
 
@@ -182,7 +194,7 @@ void Selection::findExtrema(cv::Mat src, int* histogram, int scan_region, int* o
 
 	for (int i = half_window; i < hist_width - half_window; i++){
 				
-			int thisValue = histogram[i];
+			float thisValue = histogram[i];
 			
 			bool possMax = true, possMin = true;
 			for (int j = i - half_window; j < i + half_window && (possMax || possMin); j++){
@@ -237,7 +249,7 @@ void Selection::findExtrema(cv::Mat src, int* histogram, int scan_region, int* o
 
 }
 
-void Selection::interpolateWave(cv::Mat src, int* toFill){
+void Selection::interpolateWave(cv::Mat src, float* toFill){
 	int iExtrema1 = -1;
 	int iExtrema2 = -1;
 
@@ -245,7 +257,7 @@ void Selection::interpolateWave(cv::Mat src, int* toFill){
 	int hist_height = src.rows;
 
 	for (int i = 0; i < hist_width; i++){
-		if (toFill[i] != -1){
+		if (toFill[i] != -1.0){
 			if (iExtrema1 == -1)
 				iExtrema1 == i;
 			else if (iExtrema2 == -1)
@@ -254,16 +266,16 @@ void Selection::interpolateWave(cv::Mat src, int* toFill){
 
 		//if we have found extrema value, fill array
 		if (iExtrema1 != -1 && iExtrema2 != -1){
-			int valExtrema1 = toFill[iExtrema1];
-			int valExtrema2 = toFill[iExtrema2];
+			float valExtrema1 = toFill[iExtrema1];
+			float valExtrema2 = toFill[iExtrema2];
 		
-			//if extrema 1 is a max and extrema 2 is a min, do a cosine inerpelation
+			//if extrema 1 is a max and extrema 2 is a min, do a cosine inerpelation (direction 1)
 			if (valExtrema1 > valExtrema2){
-			cosInterp(iExtrema1, iExtrema2, valExtrema1, valExtrema2);
+			calcInterp(iExtrema1, iExtrema2, valExtrema1, valExtrema2, 1, toFill);
 			}
-			//otherwise, extrema 1 is a min and extrema 2 is a max, so do a sin interpelation
+			//otherwise, extrema 1 is a min and extrema 2 is a max, so do a negative sin interpelation (direction -1
 			else{
-			sinInterp(iExtrema1, iExtrema2, valExtrema1, valExtrema2);
+			calcInterp(iExtrema1, iExtrema2, valExtrema1, valExtrema2, -1, toFill);
 			}
 
 			iExtrema1 = iExtrema2;
@@ -281,16 +293,15 @@ void Selection::interpolateWave(cv::Mat src, int* toFill){
 }
 	
 
-void Selection::cosInterp(int x1, int x2, int y1, int y2){
+void Selection::calcInterp(int x1, int x2, float y1, float y2, int direction, float* toFill){
+  int xRange = x2 - x1;
+  int yRange = y2 - y1;
 
+  for (int i = x1 + 1; i < x2; i++){
+	toFill[i] = (yRange/2) * direction * ((float) cos((2*M_PI*i)/(2 * xRange))) + (yRange/2);
+  }
 
 }
-
-void Selection::sinInterp(int x1, int x2, int y1, int y2){
-
-
-}
-
 
 
 
