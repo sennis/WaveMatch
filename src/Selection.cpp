@@ -9,9 +9,9 @@
 #include <cv.h>
 #include <highgui.h>
 
-#include "lens\ICamera.h"
-#include "lens\OpenCVCamera.h"
-#include "lens\PointGreyCamera.h"
+//#include "lens\ICamera.h"
+//#include "lens\OpenCVCamera.h"
+//#include "lens\PointGreyCamera.h"
 
 #include "Selection.h"
 
@@ -138,29 +138,168 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 	//for(int i = 0; i < src_gray.cols; i++)
       //  std::cout<<histogram[i]<<" ";
 
+	
+	int* ideal_wave = new int[hist_width];
+
+	Selection::findExtrema(src, histogram, 25, ideal_wave);
+	
 	//Draw line for histogram
 	for (int i = 1; i < hist_width; i++){
-		cv::line(src, cv::Point((i-1), hist_height - histogram[i-1] ),
+			cv::line(src, cv::Point((i-1), hist_height - histogram[i-1] ),
 			cv::Point(i, hist_height - histogram[i]),
 			cv::Scalar( 255, 100, 100), 2, 8, 0);
 
 		
 	}
+	
+	//draw mins and maxes
+	for (int i = 0;	i < hist_width; i++){	
+		if (ideal_wave[i] != -1)
+			cv::circle(src, cv::Point(i, hist_height - ideal_wave[i]), 3, cv::Scalar(0, 0, 255), -1, 8, 0);
+	}
 
-
+	
 	//RELEASE HISTOGRAM ARRAY????
 	return src;
 
 }
 
 
+void Selection::findExtrema(cv::Mat src, int* histogram, int scan_region, int* output){
 	
+	
+	//initialize all values of output to -1
+	for (int i = 0; i < src.cols; i++){
+		output[i] = -1;
+	}
+
+
+
+	int hist_width = src.cols;
+	int hist_height = src.rows;
+
+	int half_window = (scan_region - 1 ) / 2;
+
+	for (int i = half_window; i < hist_width - half_window; i++){
+				
+			int thisValue = histogram[i];
+			
+			bool possMax = true, possMin = true;
+			for (int j = i - half_window; j < i + half_window && (possMax || possMin); j++){
+
+				//look at values to the left of the value
+				if (j < i){
+					if (thisValue > histogram[j]){
+						possMin = false;
+						continue;
+					}
+					else if (thisValue < histogram[j]){
+						possMax = false;
+						continue;
+					}
+					else{
+						possMin = false;
+						possMax = false;
+						continue;
+					}
+				}
+				//look at values to the right of the value
+				else if (j > i){
+					if (thisValue > histogram[j]){
+						possMin = false;
+						continue;
+					}
+					else if (thisValue < histogram[j]){
+						possMax = false;
+						continue;
+					}
+					else{
+						possMin = false;
+						possMax = false;
+						continue;
+					}
+				}
+				//continue because we are at the value
+				else{
+					continue;
+				}
+			
+
+
+			}
+			//if it has passed the test, store it in the output array
+			if (possMin || possMax){
+					output[i] = thisValue;
+					//std::cout<<output[i]<<" ";
+				}
+	}
+
+
+}
+
+void Selection::interpolateWave(cv::Mat src, int* toFill){
+	int iExtrema1 = -1;
+	int iExtrema2 = -1;
+
+	int hist_width = src.cols;
+	int hist_height = src.rows;
+
+	for (int i = 0; i < hist_width; i++){
+		if (toFill[i] != -1){
+			if (iExtrema1 == -1)
+				iExtrema1 == i;
+			else if (iExtrema2 == -1)
+				iExtrema2 == i;
+		}
+
+		//if we have found extrema value, fill array
+		if (iExtrema1 != -1 && iExtrema2 != -1){
+			int valExtrema1 = toFill[iExtrema1];
+			int valExtrema2 = toFill[iExtrema2];
+		
+			//if extrema 1 is a max and extrema 2 is a min, do a cosine inerpelation
+			if (valExtrema1 > valExtrema2){
+			cosInterp(iExtrema1, iExtrema2, valExtrema1, valExtrema2);
+			}
+			//otherwise, extrema 1 is a min and extrema 2 is a max, so do a sin interpelation
+			else{
+			sinInterp(iExtrema1, iExtrema2, valExtrema1, valExtrema2);
+			}
+
+			iExtrema1 = iExtrema2;
+			iExtrema2 = -1;
+		}
+
+
+	}
+
+
+
+
+
+
+}
+	
+
+void Selection::cosInterp(int x1, int x2, int y1, int y2){
+
+
+}
+
+void Selection::sinInterp(int x1, int x2, int y1, int y2){
+
+
+}
+
+
+
+
 int main(int argc, char *argv[])
 {
-	//cv::VideoCapture capture(1);
+	cv::VideoCapture capture(1);
 	
-	auto camera = shared_ptr<lens::ICamera>(new lens::PointGreyCamera());
-	camera->open();
+	//auto camera = shared_ptr<lens::ICamera>(new lens::OpenCVCamera());
+	//camera->open();
 
 
 	cv::Mat frame;
@@ -173,9 +312,9 @@ int main(int argc, char *argv[])
 		
 	while(key != 'q'){
 
-			//capture.read(frame);
+			capture.read(frame);
 
-			frame = cv::Mat(camera->getFrame());
+			//frame = cv::Mat(camera->getFrame());
 
 			cv::Mat image_roi;
 
