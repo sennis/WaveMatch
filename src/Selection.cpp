@@ -110,19 +110,8 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 
 
 	for (int i = 0; i < src.cols; i++){
-		
-		//Create Mat of the selected column
-		cv::Mat thisColumn = src_gray.col(i);
-
-		int sum = 0;//, count = 0;
-		for (int j = 0; j < src.rows; j++){
-			sum += (int) thisColumn.at<uchar>(j, 0);
-			//count++;
-		}
-
-		//put the average intensity of the column into the histogram array
-		histogram[i] = cvRound( sum / (src_gray.rows * 1.0));
-		//printf("Element at %d is %d", i, histogram[i]); 
+	  //capture values from cross section halfway down screen
+	  histogram[i] = (int) src_gray.at<uchar>(src.rows/2, i);
 	}
 
 	 //for(int i = 0; i < src_gray.cols; i++)
@@ -142,13 +131,13 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 	
 	float* ideal_wave = new float[hist_width];
 
-	Selection::findExtrema(src, histogram, 25, ideal_wave);
+	Selection::findExtrema(src, histogram, 5, ideal_wave);
 	
 	//Draw line for histogram
 	for (int i = 1; i < hist_width; i++){
 			cv::line(src, cv::Point((i-1), hist_height - histogram[i-1] ),
 			cv::Point(i, hist_height - histogram[i]),
-			cv::Scalar( 255, 100, 100), 2, 8, 0);
+			cv::Scalar( 255, 100, 100), 1, 8, 0);
 
 		
 	}
@@ -191,6 +180,11 @@ void Selection::findExtrema(cv::Mat src, int* histogram, int scan_region, float*
 	int hist_height = src.rows;
 
 	int half_window = (scan_region - 1 ) / 2;
+
+	for (int i = 0; i < hist_width; i++){
+	std::cout<<histogram[i]<<" ";
+	}
+
 
 	for (int i = half_window; i < hist_width - half_window; i++){
 				
@@ -255,6 +249,10 @@ void Selection::interpolateWave(cv::Mat src, float* toFill){
 
 	int hist_width = src.cols;
 	int hist_height = src.rows;
+	
+	for (int i = 0; i < hist_width; i++){
+	std::cout<<toFill[i]<<" ";
+	}
 
 	for (int i = 0; i < hist_width; i++){
 		if (toFill[i] != -1.0){
