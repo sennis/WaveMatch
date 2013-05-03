@@ -128,11 +128,8 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 	//for(int i = 0; i < src_gray.cols; i++)
       //  std::cout<<histogram[i]<<" ";
 
-	
-	float* ideal_wave = new float[hist_width];
 
-	Selection::findExtrema(src, histogram, 5, ideal_wave);
-	
+
 	//Draw line for histogram
 	for (int i = 1; i < hist_width; i++){
 			cv::line(src, cv::Point((i-1), hist_height - histogram[i-1] ),
@@ -141,7 +138,15 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 
 		
 	}
+		
+	float* ideal_wave = new float[hist_width];
+
+	Selection::findExtrema(src, histogram, 10, ideal_wave);
 	
+	for(int i = 0; i < src_gray.cols; i++)
+        std::cout<<ideal_wave[i]<<" ";
+
+
 	//draw mins and maxes
 	for (int i = 0;	i < hist_width; i++){	
 		if (ideal_wave[i] != -1)
@@ -150,11 +155,14 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 
 	Selection::interpolateWave(src, ideal_wave);
 
+	for(int i = 0; i < src_gray.cols; i++)
+        std::cout<<ideal_wave[i]<<" ";
+
 	//draw ideal wave
 	for (int i = 1; i < hist_width; i++){
 			cv::line(src, cv::Point((i-1), hist_height - cvRound(ideal_wave[i-1]) ),
 			cv::Point(i, hist_height - cvRound(ideal_wave[i])),
-			cv::Scalar( 200, 255, 0), 2, 8, 0);
+			cv::Scalar( 200, 255, 0), 1, 8, 0);
 
 		
 	}
@@ -181,9 +189,10 @@ void Selection::findExtrema(cv::Mat src, int* histogram, int scan_region, float*
 
 	int half_window = (scan_region - 1 ) / 2;
 
+	/*
 	for (int i = 0; i < hist_width; i++){
 	std::cout<<histogram[i]<<" ";
-	}
+	}*/
 
 
 	for (int i = half_window; i < hist_width - half_window; i++){
@@ -250,16 +259,20 @@ void Selection::interpolateWave(cv::Mat src, float* toFill){
 	int hist_width = src.cols;
 	int hist_height = src.rows;
 	
+	/*
 	for (int i = 0; i < hist_width; i++){
-	std::cout<<toFill[i]<<" ";
-	}
+		if (toFill[i] != -1.0){
+			std::cout<<i<<" ";
+		std::cout<<toFill[i]<<" ";
+		}
+	}*/
 
 	for (int i = 0; i < hist_width; i++){
 		if (toFill[i] != -1.0){
 			if (iExtrema1 == -1)
-				iExtrema1 == i;
+				iExtrema1 = i;
 			else if (iExtrema2 == -1)
-				iExtrema2 == i;
+				iExtrema2 = i;
 		}
 
 		//if we have found extrema value, fill array
@@ -293,10 +306,12 @@ void Selection::interpolateWave(cv::Mat src, float* toFill){
 
 void Selection::calcInterp(int x1, int x2, float y1, float y2, int direction, float* toFill){
   int xRange = x2 - x1;
-  int yRange = y2 - y1;
+  float yRange = y2 - y1;
 
   for (int i = x1 + 1; i < x2; i++){
-	toFill[i] = (yRange/2) * direction * ((float) cos((2*M_PI*i)/(2 * xRange))) + (yRange/2);
+	
+	  //VERY WRONG!!!!
+	  toFill[i] = (yRange/2.0) * direction * (cos(((2*M_PI*(i - x1))/(2 * xRange * 1.0)))) + (yRange/2.0);
   }
 
 }
