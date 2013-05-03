@@ -16,7 +16,13 @@
 
 #include "Selection.h"
 
+/*
+1. normalizing in the right spot?
+2. where to subtract iMin?
+3. do i want equal values to be able to be extrema?
+4. release arrays?
 
+*/
 
   
   int drag = 0;
@@ -102,29 +108,35 @@ cv::Rect Selection::getRect(cv::Point p1, cv::Point p2){
 
 }
 
-cv::Mat Selection::computeHistogram(cv::Mat src){
+cv::Mat Selection::computeHistogram(cv::Mat src, cv::Mat iMin, cv::Mat iMax){
 	cv::Mat src_gray;
 	cv::cvtColor(src, src_gray, CV_RGB2GRAY);
 
 	int* histogram = new int[src.cols];
-
+	int* iMinHist = new int[src.cols];
 
 	for (int i = 0; i < src.cols; i++){
-	  //capture values from cross section halfway down screen
+	  //capture values from cross section for I
 	  histogram[i] = (int) src_gray.at<uchar>(src.rows/2, i);
+
+	  //capture values from cross section for Imin
+	  iMinHist[i] = (int) iMin.at<uchar>(src.rows/2, i);
 	}
 
 	 //for(int i = 0; i < src_gray.cols; i++)
        // std::cout<<histogram[i]<<" ";
 
-	 //draw histogram
 	 int hist_width = src_gray.cols;
 	 int hist_height = src_gray.rows;
  
+	 
+	 //WILL THIS MESS UP DATA?????? NOW I AM NORMALIZING IN DRAWING FUNCTIONS
 	 //NORMALIZE histogram between 0 and hist_height
-	for(int i = 0; i < hist_width; i++){
+	/*for(int i = 0; i < hist_width; i++){
 		histogram[i] = cvRound(((double)histogram[i]/255*hist_height));
-	}
+	}*/
+
+
 	//for(int i = 0; i < src_gray.cols; i++)
       //  std::cout<<histogram[i]<<" ";
 
@@ -132,8 +144,8 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 
 	//Draw line for histogram
 	for (int i = 1; i < hist_width; i++){
-			cv::line(src, cv::Point((i-1), hist_height - histogram[i-1] ),
-			cv::Point(i, hist_height - histogram[i]),
+			cv::line(src, cv::Point((i-1), hist_height - cvRound(((double)histogram[i-1]/255*hist_height))),
+			cv::Point(i, hist_height - cvRound(((double)histogram[i]/255*hist_height))),
 			cv::Scalar( 255, 100, 100), 1, 8, 0);
 
 		
@@ -150,7 +162,7 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 	//draw mins and maxes
 	for (int i = 0;	i < hist_width; i++){	
 		if (ideal_wave[i] != -1)
-			cv::circle(src, cv::Point(i, hist_height - cvRound(ideal_wave[i])), 3, cv::Scalar(0, 0, 255), -1, 8, 0);
+			cv::circle(src, cv::Point(i, hist_height - cvRound(((double)ideal_wave[i]/255*hist_height))), 3, cv::Scalar(0, 0, 255), -1, 8, 0);
 	}
 
 	Selection::interpolateWave(src, ideal_wave);
@@ -160,8 +172,8 @@ cv::Mat Selection::computeHistogram(cv::Mat src){
 
 	//draw ideal wave
 	for (int i = 1; i < hist_width; i++){
-			cv::line(src, cv::Point((i-1), hist_height - cvRound(ideal_wave[i-1]) ),
-			cv::Point(i, hist_height - cvRound(ideal_wave[i])),
+			cv::line(src, cv::Point((i-1), hist_height - cvRound(((double)ideal_wave[i-1]/255*hist_height)) ),
+			cv::Point(i, hist_height - cvRound(((double)ideal_wave[i]/255*hist_height))),
 			cv::Scalar( 200, 255, 0), 1, 8, 0);
 
 		
@@ -212,11 +224,13 @@ void Selection::findExtrema(cv::Mat src, int* histogram, int scan_region, float*
 						possMax = false;
 						continue;
 					}
-					else{
+
+					//DO I WANT THIS PART??? (This lets two maxes/mins be in the same region if they are equal)
+					/*else{
 						possMin = false;
 						possMax = false;
 						continue;
-					}
+					}*/
 				}
 				//look at values to the right of the value
 				else if (j > i){
@@ -228,11 +242,13 @@ void Selection::findExtrema(cv::Mat src, int* histogram, int scan_region, float*
 						possMax = false;
 						continue;
 					}
-					else{
+
+					//DO I WANT THIS PART???
+					/*else{
 						possMin = false;
 						possMax = false;
 						continue;
-					}
+					}*/
 				}
 				//continue because we are at the value
 				else{
@@ -311,7 +327,7 @@ void Selection::calcInterp(int x1, int x2, float y1, float y2, int direction, fl
   for (int i = x1 + 1; i < x2; i++){
 	
 	  //VERY WRONG!!!!
-	  toFill[i] = (yRange/2.0) * direction * (cos(((2*M_PI*(i - x1))/(2 * xRange * 1.0)))) + (yRange/2.0);
+	  toFill[i] = (yRange/2.0) * direction * (cos(((2*M_PI*(i - x1))/(2 * xRange * 1.0)))) + (yRange/2.0) + y1;
   }
 
 }
@@ -325,8 +341,13 @@ int main(int argc, char *argv[])
 	//auto camera = shared_ptr<lens::ICamera>(new lens::OpenCVCamera());
 	//camera->open();
 
+	bool iMinCaptured = false;
+	bool iMaxCaptured = false;
 
 	cv::Mat frame;
+
+	cv::Mat iMin;
+	cv::Mat iMax;
 	
 	cv::namedWindow("View");
 		
@@ -335,6 +356,32 @@ int main(int argc, char *argv[])
 	int key = 0;
 		
 	while(key != 'q'){
+		
+		//ASK USER TO HIT ENTER TO CAPTURE MIN IMAGE
+		while (!iMinCaptured){
+			
+			//wait for enter key
+			while ( 13 != cvWaitKey( 15 ) )
+			{	
+		
+			capture.read(frame);
+			
+			//frame = cv::Mat(camera->getFrame());
+			cv::putText(frame, "Press <Enter> to capture minimum intensity image.", cv::Point( 50, 50 ), cv::FONT_HERSHEY_TRIPLEX, .5, cv::Scalar(255, 255, 255) );
+			
+			
+			cv::imshow("View", frame);
+			}
+		
+			//CAPTURE MIN IMAGE
+			capture.read(iMin);
+			
+			//iMin = cv::Mat(camera->getFrame());
+			iMinCaptured = true;
+		
+		}
+
+		//ASK USER TO HIT ENTER TO CAPTURE MAX IMAGE
 
 			capture.read(frame);
 
@@ -350,7 +397,7 @@ int main(int argc, char *argv[])
 
 			  if(computeHist){
 						
-				Selection::computeHistogram(image_roi);
+				Selection::computeHistogram(image_roi, iMin, iMax);
 
 			  }
 
