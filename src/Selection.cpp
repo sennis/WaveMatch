@@ -112,15 +112,28 @@ cv::Mat Selection::computeHistogram(cv::Mat src, cv::Mat iMin, cv::Mat iMax){
 	cv::Mat src_gray;
 	cv::cvtColor(src, src_gray, CV_RGB2GRAY);
 
-	int* histogram = new int[src.cols];
-	int* iMinHist = new int[src.cols];
+	//int* histogram = new int[src.cols];
+	auto histogram = std::unique_ptr<int[]>( new int[src.cols] );
+	
+	//int* iMinHist = new int[src.cols];
+	auto iMinHist = std::unique_ptr<int[]>( new int[src.cols]);
+
 
 	for (int i = 0; i < src.cols; i++){
 	  //capture values from cross section for I
 	  histogram[i] = (int) src_gray.at<uchar>(src.rows/2, i);
-
 	  //capture values from cross section for Imin
 	  iMinHist[i] = (int) iMin.at<uchar>(src.rows/2, i);
+
+
+	  //SUBTRACT IMIN
+	  if (iMinHist[i] <= histogram[i]){
+		  histogram[i] -= iMinHist[i];
+	  }
+	  else{
+		histogram[i] = 0;
+	  }
+
 	}
 
 	 //for(int i = 0; i < src_gray.cols; i++)
@@ -144,16 +157,18 @@ cv::Mat Selection::computeHistogram(cv::Mat src, cv::Mat iMin, cv::Mat iMax){
 
 	//Draw line for histogram
 	for (int i = 1; i < hist_width; i++){
-			cv::line(src, cv::Point((i-1), hist_height - cvRound(((double)histogram[i-1]/255*hist_height))),
-			cv::Point(i, hist_height - cvRound(((double)histogram[i]/255*hist_height))),
+			cv::line(src, cv::Point((i-1), hist_height - cvRound(((double)histogram[i-1]/255.0*hist_height))),
+			cv::Point(i, hist_height - cvRound(((double)histogram[i]/255.0*hist_height))),
 			cv::Scalar( 255, 100, 100), 1, 8, 0);
 
 		
 	}
 		
-	float* ideal_wave = new float[hist_width];
+	//float* ideal_wave = new float[hist_width];
+	auto ideal_wave = std::unique_ptr<float[]>(new float[hist_width]);
 
-	Selection::findExtrema(src, histogram, 10, ideal_wave);
+
+	Selection::findExtrema(src, histogram.get(), 10, ideal_wave.get());
 	
 	for(int i = 0; i < src_gray.cols; i++)
         std::cout<<ideal_wave[i]<<" ";
@@ -162,17 +177,17 @@ cv::Mat Selection::computeHistogram(cv::Mat src, cv::Mat iMin, cv::Mat iMax){
 	//draw mins and maxes
 	for (int i = 0;	i < hist_width; i++){	
 		if (ideal_wave[i] != -1)
-			cv::circle(src, cv::Point(i, hist_height - cvRound(((double)ideal_wave[i]/255*hist_height))), 3, cv::Scalar(0, 0, 255), -1, 8, 0);
+			cv::circle(src, cv::Point(i, hist_height - cvRound(((double)ideal_wave[i]/255.0*hist_height))), 3, cv::Scalar(0, 0, 255), -1, 8, 0);
 	}
 
-	Selection::interpolateWave(src, ideal_wave);
+	Selection::interpolateWave(src, ideal_wave.get());
 
 	for(int i = 0; i < src_gray.cols; i++)
         std::cout<<ideal_wave[i]<<" ";
 
 	//draw ideal wave
 	for (int i = 1; i < hist_width; i++){
-			cv::line(src, cv::Point((i-1), hist_height - cvRound(((double)ideal_wave[i-1]/255*hist_height)) ),
+			cv::line(src, cv::Point((i-1), hist_height - cvRound(((double)ideal_wave[i-1]/255.0*hist_height)) ),
 			cv::Point(i, hist_height - cvRound(((double)ideal_wave[i]/255*hist_height))),
 			cv::Scalar( 200, 255, 0), 1, 8, 0);
 
@@ -325,8 +340,7 @@ void Selection::calcInterp(int x1, int x2, float y1, float y2, int direction, fl
   float yRange = y2 - y1;
 
   for (int i = x1 + 1; i < x2; i++){
-	
-	  //VERY WRONG!!!!
+
 	  toFill[i] = (yRange/2.0) * direction * (cos(((2*M_PI*(i - x1))/(2 * xRange * 1.0)))) + (yRange/2.0) + y1;
   }
 
