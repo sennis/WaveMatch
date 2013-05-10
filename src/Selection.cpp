@@ -6,13 +6,11 @@
 #include <string.h>
 #include <algorithm>
 
+#include <memory>
+
 // OpenCV includes
 #include <cv.h>
 #include <highgui.h>
-
-//#include "lens\ICamera.h"
-//#include "lens\OpenCVCamera.h"
-//#include "lens\PointGreyCamera.h"
 
 #include "Selection.h"
 
@@ -168,11 +166,12 @@ cv::Mat Selection::computeHistogram(cv::Mat src, cv::Mat iMin, cv::Mat iMax){
 	auto ideal_wave = std::unique_ptr<float[]>(new float[hist_width]);
 
 
-	Selection::findExtrema(src, histogram.get(), 10, ideal_wave.get());
+	Selection::findExtrema(src, histogram.get(), 45, ideal_wave.get());
 	
+	/*
 	for(int i = 0; i < src_gray.cols; i++)
         std::cout<<ideal_wave[i]<<" ";
-
+		*/
 
 	//draw mins and maxes
 	for (int i = 0;	i < hist_width; i++){	
@@ -182,9 +181,10 @@ cv::Mat Selection::computeHistogram(cv::Mat src, cv::Mat iMin, cv::Mat iMax){
 
 	Selection::interpolateWave(src, ideal_wave.get());
 
+	/*
 	for(int i = 0; i < src_gray.cols; i++)
         std::cout<<ideal_wave[i]<<" ";
-
+		*/
 	//draw ideal wave
 	for (int i = 1; i < hist_width; i++){
 			cv::line(src, cv::Point((i-1), hist_height - cvRound(((double)ideal_wave[i-1]/255.0*hist_height)) ),
@@ -341,7 +341,8 @@ void Selection::calcInterp(int x1, int x2, float y1, float y2, int direction, fl
 
   for (int i = x1 + 1; i < x2; i++){
 
-	  toFill[i] = (yRange/2.0) * direction * (cos(((2*M_PI*(i - x1))/(2 * xRange * 1.0)))) + (yRange/2.0) + y1;
+	 // toFill[i] = (yRange/2.0) * direction * (cos(((2*M_PI*(i - x1))/(2 * xRange * 1.0)))) + (yRange/2.0) + y1;
+	toFill[i] = -1 * (yRange/2.0) * (cos(((2*M_PI*(i - x1))/(2 * xRange * 1.0)))) + (yRange/2.0) + y1;
   }
 
 }
@@ -350,10 +351,10 @@ void Selection::calcInterp(int x1, int x2, float y1, float y2, int direction, fl
 
 int main(int argc, char *argv[])
 {
-	cv::VideoCapture capture(1);
+	//cv::VideoCapture capture(1);
 	
-	//auto camera = shared_ptr<lens::ICamera>(new lens::OpenCVCamera());
-	//camera->open();
+	auto camera = shared_ptr<lens::ICamera>(new lens::PointGreyCamera());
+	camera->open();
 
 	bool iMinCaptured = false;
 	bool iMaxCaptured = false;
@@ -378,9 +379,10 @@ int main(int argc, char *argv[])
 			while ( 13 != cvWaitKey( 15 ) )
 			{	
 		
-			capture.read(frame);
+			//capture.read(frame);
 			
-			//frame = cv::Mat(camera->getFrame());
+
+			frame = cv::Mat(camera->getFrame());
 			cv::putText(frame, "Press <Enter> to capture minimum intensity image.", cv::Point( 50, 50 ), cv::FONT_HERSHEY_TRIPLEX, .5, cv::Scalar(255, 255, 255) );
 			
 			
@@ -388,18 +390,18 @@ int main(int argc, char *argv[])
 			}
 		
 			//CAPTURE MIN IMAGE
-			capture.read(iMin);
+			//capture.read(iMin);
 			
-			//iMin = cv::Mat(camera->getFrame());
+			iMin = cv::Mat(camera->getFrame());
 			iMinCaptured = true;
 		
 		}
 
 		//ASK USER TO HIT ENTER TO CAPTURE MAX IMAGE
 
-			capture.read(frame);
+			//capture.read(frame);
 
-			//frame = cv::Mat(camera->getFrame());
+			frame = cv::Mat(camera->getFrame());
 
 			cv::Mat image_roi;
 

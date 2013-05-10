@@ -1,6 +1,14 @@
 #ifndef _H_SELECTION_RIO_
 #define _H_SELECTION_RIO_
 
+#include "lens\config-lens.h"
+#include "lens\ICamera.h"
+#include "lens\OpenCVCamera.h"
+
+#ifdef USE_POINT_GREY_CAMERA
+  #include "lens\PointGreyCamera.h"
+#endif
+
 class Selection
 {
 public:
@@ -14,10 +22,5 @@ public:
 
 
 };
-
-
-
-
-
 
 #endif // _H_SELECTION_RIO_
